@@ -39,18 +39,7 @@ struct _GstCustomVEnc
     guchar *buf;    // 编码后的输出缓存
   } codec;
 
-  struct imgproc_info {
-    void *handle;
-    gint outbuf_size;
-    gint width;
-    gint height;
-    struct {
-      GstMemory *memory;
-      gint fd;
-    } input, output;
-  } imgproc;
-
-  GstAllocator *dmabuf_alloc;
+  GstAllocator *dma_buffer;
 
   /* properties */
   gint gop;
@@ -58,15 +47,15 @@ struct _GstCustomVEnc
   guint bitrate;
   guint min_buffers;
   guint max_buffers;
-  guint encoder_bufsize;
+  guint buffsize_of_enc;
 
   struct roi_info {
-    guint srcid;
-    gboolean enabled;
-    gint id;
-    gint block_size;
+    guint source_id;
+    gboolean is_enabled;
+    gint current_id;
+    gint size_of_block;
     struct listnode param_info;
-    struct _buffer_info {
+    struct _buffer {
       gint width;
       gint height;
       guchar *data;
