@@ -41,7 +41,7 @@ struct _GstCustomVEnc
 
   GstAllocator *dma_buffer;
 
-  /* properties */
+  /* 属性properties */
   gint gop;
   gint framerate;
   guint bitrate;
@@ -49,8 +49,8 @@ struct _GstCustomVEnc
   guint max_buffers;
   guint buffsize_of_enc;
 
-  struct roi_info {
-    guint source_id;
+  /* 感兴趣区域相关 */
+  struct roi_related {
     gboolean is_enabled;
     gint current_id;
     gint size_of_block;
@@ -62,7 +62,7 @@ struct _GstCustomVEnc
     } buffer_info;
   } roi;
 
-  /* used to get input state */
+  /* 用于获取输入stream的状态 */
   GstVideoCodecState *input_state;
 
 };

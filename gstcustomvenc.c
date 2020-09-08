@@ -415,9 +415,9 @@ gst_customvenc_set_format (GstVideoEncoder * video_enc,
 
     if (!g_strcmp0 (allowed_mime_name, "video/x-h265"))
     {
-      enc->codec.id = CODEC_ID_H265;
+      enc->codec.id = H265;
     } else {
-      enc->codec.id = CODEC_ID_H264;
+      enc->codec.id = H264;
     }
 
     gst_caps_unref (allowed_caps);
