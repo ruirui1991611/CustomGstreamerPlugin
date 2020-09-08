@@ -1,8 +1,8 @@
-# gst-customvenc-plugin : 编写自己的gstreamer插件
+# 1. gst-customvenc-plugin : 编写自己的gstreamer插件
 
 本文档记录了自己学习写gstreamer plugin的过程.
 
-# 步骤(适合自己理解的一般过程)
+# 2. 步骤(适合自己理解的一般过程)
 注: 仅参考gstreamer的官方文档来编写插件是有难度的, 个人觉得官方文档不是很友好, 建议直接去参考gstreamer自带的插件, 如gst-plugin-good, gst-plugin-base, gst-plugin-bad等, 毕竟先跑起来才更容易理解吧.
 
 1.调用GST_PLUGIN_DEFINE(major,minor,name,description,init,version,license,package,origin)宏设置版本号, 插件名称, 初始化函数, 许可证以及插件描述等信息.

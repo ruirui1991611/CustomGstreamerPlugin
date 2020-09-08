@@ -12,7 +12,6 @@
  */
 
 #include <gmodule.h>
-#include <gst/allocators/gstamlionallocator.h>
 #include <gst/allocators/gstdmabuf.h>
 #include <gst/gst.h>
 #include <gst/pbutils/pbutils.h>
@@ -103,6 +102,12 @@ static void gst_customvenc_get_property (GObject * obj, guint id,
 G_DEFINE_TYPE_WITH_CODE (GstCustomEnc, gst_customvenc, GST_TYPE_VIDEO_ENCODER,
     G_IMPLEMENT_INTERFACE (GST_TYPE_PRESET, NULL));
 
+/*
+ * venc_image_fmt类型是 video encoder lib库里的
+ * 此函数是用于将gstreamer定义的的image format转
+ * 化成venc支持的类型
+ */
+
 static venc_image_fmt
 convert_image_format (GstVideoFormat vfmt) {
   venc_image_fmt fmt;
@@ -128,6 +133,10 @@ convert_image_format (GstVideoFormat vfmt) {
   return fmt;
 }
 
+
+/* 当上游stream来到时, gstreamer框架会调用此函数去
+ * 询问上游pad的capability, 以此为依据来进行连接
+ */
 static gboolean
 gst_customvenc_sink_query (GstVideoEncoder * enc, GstQuery * query)
 {
@@ -226,10 +235,8 @@ gst_customvenc_class_init (GstCustomEncClass * klass)
     gst_ele_class_add_static_pad_template (element_class, &source_pad);
 }
 
-/* initialize the new element
- * instantiate pads and add them to element
- * set functions
- * initialize structure
+/*
+ * 初始化相关必要变量
  */
 static void
 gst_customvenc_init (GstCustomEnc * enc)
