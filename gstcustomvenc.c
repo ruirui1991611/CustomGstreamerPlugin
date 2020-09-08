@@ -553,7 +553,7 @@ gst_customvenc_set_property (GObject * obj, guint id,
 static gboolean
 plugin_init (GstPlugin * customvenc){
 
-    // 用于用户debug
+    // 方便用户层进行debug
     GST_DEBUG_CATEGORY_INIT (gst_customvenc_debug, "customvenc", 0,
         "customized video encoding element");
 
