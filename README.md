@@ -26,7 +26,7 @@ GST_PLUGIN_DEFINE (
     "Local"
 )
 ```
-2.完成 xxx_class_init()函数, 根据具体功能实现必要的相关callback函数以及相关property参数的添加(有些参数需要用户在外部修改设置)
+2.完成 xxx_class_init()函数, 根据具体功能实现必要的callback函数(gstreamer框架调用)以及相关property参数的添加(有些参数需要用户在外部修改设置)
 ```c
 static void
 gst_customvenc_class_init (GstCustomEncClass * klass)
@@ -75,3 +75,17 @@ gst_customvenc_class_init (GstCustomEncClass * klass)
     gst_ele_class_add_static_pad_template (element_class, &source_pad);
 }
 ```
+3.分别实现上面确定的callback函数, 见下表(具体实现参考代码)
+
+| gstreamer框架的callback与函数实现的映射 | class类型 |  描述    |
+| ------------------------------------------------------ | ---- | ---- |
+| set_property  <==>  gst_customvenc_set_property | G_OBJECT_CLASS | 属性设置, 实现此函数, 用户可以在外部修改相关属性值 |
+| get_property <==>  gst_customvenc_get_property | G_OBJECT_CLASS | 属性获取, 实现此函数, 用户可以在外部获取当前相关属性值 |
+| finalize  <==>  gst_customvenc_finalize | G_OBJECT_CLASS | 类似析构函数, 将申请的资源进行释放回收                 |
+| start  <==>  gst_customvenc_start | GST_VIDEO_ENCODER_CLASS | 当开始处理pipeline上的stream流时, 该函数会被执行 |
+| stop  <==>  gst_customvenc_stop | GST_VIDEO_ENCODER_CLASS | 当pipeline上无待处理的stream流时, 该函数会被执行 |
+| flush  <==>  gst_customvenc_flush | GST_VIDEO_ENCODER_CLASS | 刷新流, 刷新流时我们回去重新初始化encoder |
+| set_format  <==>  gst_customvenc_set_format | GST_VIDEO_ENCODER_CLASS | 格式设置, 只要插件的pad属性被修改，gstreamer就会调用它 |
+| sink_query  <==>  gst_customvenc_sink_query | GST_VIDEO_ENCODER_CLASS | 查询pad支持的caps, 上下游协商 |
+| handle_frame  <==>  gst_customvenc_handle_frame | GST_VIDEO_ENCODER_CLASS | 每来一帧都会调用此函数进行处理(这里实现主要逻辑) |
+

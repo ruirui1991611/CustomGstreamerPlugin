@@ -170,13 +170,13 @@ gst_customvenc_class_init (GstCustomEncClass * klass)
     obj_class->get_property = gst_customvenc_get_property;
     obj_class->finalize = gst_customvenc_finalize;
 
-    enc_class->set_format = GST_DEBUG_FUNCPTR (gst_customvenc_set_format);
-    enc_class->handle_frame =
-        GST_DEBUG_FUNCPTR (gst_customvenc_handle_frame);
     enc_class->start = GST_DEBUG_FUNCPTR (gst_customvenc_start);
     enc_class->stop = GST_DEBUG_FUNCPTR (gst_customvenc_stop);
     enc_class->flush = GST_DEBUG_FUNCPTR (gst_customvenc_flush);
+    enc_class->set_format = GST_DEBUG_FUNCPTR (gst_customvenc_set_format);
     enc_class->sink_query = GST_DEBUG_FUNCPTR (gst_customvenc_sink_query);
+    enc_class->handle_frame =
+        GST_DEBUG_FUNCPTR (gst_customvenc_handle_frame);
 
     g_obj_class_install_property (obj_class, P_GOP,
         g_param_spec_int ("gop", "GOP", "key frame interval",
@@ -439,7 +439,6 @@ gst_customvenc_handle_frame (GstVideoEncoder * video_enc,
 
   ret = gst_customvenc_encode_frame (enc, frame);
 
-  /* input buffer is released later on */
   return ret;
 
 /* ERRORS */
@@ -456,7 +455,7 @@ gst_customvenc_encode_frame (GstCustomEnc * enc,
 {
 
   /* 下面部份使用video encoder编码帧(调用相应的lib库), 不同的
-   * venc有所不同, 这里还支持使用dma buffer, 代码就不放出了
+   * venc有所不同, 这里还支持使用dma buffer, 具体代码就不放出了
    */
 
   return gst_video_enc_finish_frame ( GST_VIDEO_ENCODER(encoder), frame);
@@ -524,7 +523,7 @@ gst_customvenc_set_property (GObject * obj, guint id,
             if (bitrate != enc->bitrate) {
                 enc->bitrate = bitrate;
                 if (enc->codec.handle) {
-                    gint ret = venc_change_bitrate (enc->codec.handle, enc->bitrate * 1000);  // 内部encoder接口
+                    gint ret = venc_change_bitrate (enc->codec.handle, enc->bitrate * 1000);  // 内部encoder lib接口
                     GST_DEBUG ("Change bitrate:%d", enc->bitrate);
                     if (ret != 0)
                         GST_DEBUG ("change bitrate error, ret:%d", ret);
