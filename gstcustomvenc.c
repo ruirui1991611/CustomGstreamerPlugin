@@ -355,7 +355,7 @@ gst_customvenc_close_enc (GstCustomEnc * encoder)
 {
   if (enc->codec.handle != 0) {
     /* 调用encoder lib库接口销毁encoder句柄 */
-    vl_multi_enc_destroy(encoder->codec.handle);
+    venc_destroy(encoder->codec.handle);
     enc->codec.handle = 0;
   }
 }
@@ -509,7 +509,7 @@ gst_customvenc_set_property (GObject * obj, guint id,
             if (gop != enc->gop) {
                 enc->gop = gop;
             if (enc->codec.handle) {
-                gint ret = vl_video_enc_change_gop (enc->codec.handle, 30, enc->gop);
+                gint ret = venc_change_gop (enc->codec.handle, 30, enc->gop);
                 GST_DEBUG ("Change gop:%d", enc->gop);
                 if (ret != 0)
                     GST_DEBUG ("change gop error, ret:%d", ret);
@@ -524,7 +524,7 @@ gst_customvenc_set_property (GObject * obj, guint id,
             if (bitrate != enc->bitrate) {
                 enc->bitrate = bitrate;
                 if (enc->codec.handle) {
-                    gint ret = vl_video_enc_change_bitrate (enc->codec.handle, enc->bitrate * 1000);  // 内部encoder接口
+                    gint ret = venc_change_bitrate (enc->codec.handle, enc->bitrate * 1000);  // 内部encoder接口
                     GST_DEBUG ("Change bitrate:%d", enc->bitrate);
                     if (ret != 0)
                         GST_DEBUG ("change bitrate error, ret:%d", ret);
