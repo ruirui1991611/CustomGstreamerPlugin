@@ -229,6 +229,43 @@ gst_customvenc_class_init (GstCustomEncClass * klass)
             P_ENCODER_BUFFER_SIZE_MIN, P_ENCODER_BUFFER_SIZE_MAX, P_ENCODER_BUFFER_SIZE_DEFAULT,
             G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
+    // roi相关property
+    g_obj_class_install_property (obj_class, P_ROI_ENABLED,
+        g_param_spec_boolean ("roi-enabled", "roi-enabled", "Enable/Disable roi",
+            P_ROI_ENABLED_DEFAULT,
+            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+    g_obj_class_install_property(obj_class, P_ROI_ID,
+        g_param_spec_int("roi-id", "roi-id", "Current roi index",
+            0, G_MAXINT32, P_ROI_ID_DEFAULT,
+            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+    g_obj_class_install_property (obj_class, P_ROI_WIDTH,
+        g_param_spec_float("roi-width", "roi-width", "roi rectangle",
+            0.00, G_MAXFLOAT, P_ROI_WIDTH_DEFAULT,
+            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+    g_obj_class_install_property (obj_class, P_ROI_HEIGHT,
+        g_param_spec_float("roi-height", "roi-height", "roi rectangle",
+            0.00, G_MAXFLOAT, P_ROI_HEIGHT_DEFAULT,
+            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+    g_obj_class_install_property (obj_class, P_ROI_X,
+        g_param_spec_float("roi-x", "roi-x", "horizontal start position of the roi rectangle",
+            0.00, G_MAXFLOAT, P_ROI_X_DEFAULT,
+            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+    g_obj_class_install_property (obj_class, P_ROI_Y,
+        g_param_spec_float("roi-y", "roi-y", "vertical start position of the roi rectangle",
+            0.00, G_MAXFLOAT, P_ROI_Y_DEFAULT,
+            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+    g_obj_class_install_property (obj_class, P_ROI_QUALITY,
+        g_param_spec_int("roi-quality", "roi-quality", "roi quality",
+            0, 51, P_ROI_QUALITY_DEFAULT,
+            G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+
     gst_ele_class_set_static_metadata (
           ele_class, "Customized Video Encoder", "Video Encoder",
           "Customized Video Encoder Plugin", "HenryLee <henry_1_lee@163.com>");
@@ -317,6 +354,34 @@ gst_customvenc_flush (GstVideoEncoder * enc)
     gst_customvenc_init_enc (venc);
 
     return TRUE;
+}
+
+/* 根据id 遍历链表，获取对应的指针地址 */
+static struct roi_param *get_roi_param(GstCustomEnc *enc, gint id) {
+  GstCustomEnc *self = GST_CUSTOMVENC (enc);
+  struct roi_param *ret = NULL;
+  if (!list_empty (&self->roi.param)) {
+    struct listnode *pos;
+    list_for_each (pos, &self->roi.param) {
+      struct roi_param *param =
+        list_entry (pos, struct roi_param, list);
+      if (param->id == id) {
+        ret = param;
+      }
+    }
+  }
+  if (ret == NULL) {
+    ret = g_new(struct roi_param, 1);
+    list_init (&ret->list);
+    list_add_tail(&self->roi.param, &ret->list);
+    ret->id = id;
+    ret->location.left = P_ROI_X_DEFAULT;
+    ret->location.top = P_ROI_Y_DEFAULT;
+    ret->location.width = P_ROI_WIDTH_DEFAULT;
+    ret->location.height = P_ROI_HEIGHT_DEFAULT;
+    ret->quality = P_ROI_QUALITY_DEFAULT;
+  }
+  return ret;
 }
 
 /*
@@ -610,6 +675,32 @@ gst_customvenc_get_property (GObject * obj, guint id,
         case P_ENCODER_BUFSIZE:
             g_value_set_int (val, enc->encoder_bufsize / 1024);
             break;
+        case P_ROI_ENABLED:
+            g_value_set_boolean (val, enc->roi.enabled);
+            break;
+        case P_ROI_ID:
+            g_value_set_int (val, enc->roi.id);
+            break;
+        case P_ROI_WIDTH: {
+                struct roi_param *param = get_roi_param(enc, enc->roi.id);
+                g_value_set_float (val, param->location.width);
+            } break;
+        case P_ROI_HEIGHT: {
+                struct roi_param *param = get_roi_param(enc, enc->roi.id);
+            g_value_set_float (val, param->location.height);
+            } break;
+        case P_ROI_X: {
+                struct roi_param *param = get_roi_param(enc, enc->roi.id);
+                g_value_set_float (val, param->location.left);
+            } break;
+        case P_ROI_Y: {
+                struct roi_param *param = get_roi_param(enc, enc->roi.id);
+                g_value_set_float (val, param->location.top);
+            } break;
+        case P_ROI_QUALITY: {
+                struct roi_param *param = get_roi_param(enc, enc->roi.id);
+                g_value_set_int (val, param->quality);
+            } break;
         default:
             G_OBJECT_WARN_INVALID_PERTY_ID (obj, id, spec);
             break;
@@ -654,19 +745,59 @@ gst_customvenc_set_property (GObject * obj, guint id,
             }
         } break;
         case P_MIN_BUFFERS:
-          enc->min_buffers = g_value_get_int (val);
-          break;
+            enc->min_buffers = g_value_get_int (val);
+            break;
         case P_MAX_BUFFERS:
-          enc->max_buffers = g_value_get_int (val);
-          break;
+            enc->max_buffers = g_value_get_int (val);
+            break;
         case P_ENCODER_BUFSIZE:
-          enc->enc_bufsize = g_value_get_int (val) * 1024;
-          break;
+            enc->enc_bufsize = g_value_get_int (val) * 1024;
+            break;
+        case P_ROI_ENABLED: {
+                gboolean enabled = g_value_get_boolean (val);
+                if (!enabled) {
+                    roi_list_clear(enc);
+                    memset(enc->roi.buffer_info.data,
+                    P_ROI_QUALITY_DEFAULT,
+                    enc->roi.buffer_info.width * enc->roi.buffer_info.height);
+                }
+                if (enabled != enc->roi.enabled) {
+                    enc->roi.enabled = enabled;
+                }
+            } break;
+        case P_ROI_ID: {
+                gint ID = g_value_get_int (val);
+                if (ID != enc->roi.ID) {
+                    enc->roi.id = ID;
+                }
+            } break;
+        case P_ROI_WIDTH: {
+                struct roi_param *param = get_roi_param(enc, enc->roi.id);
+                param->location.width = g_value_get_float (val);
+            } break;
+        case P_ROI_HEIGHT: {
+                struct roi_param *param = get_roi_param(enc, enc->roi.id);
+                param->location.height = g_value_get_float (val);
+            } break;
+        case P_ROI_X: {
+                struct roi_param *param = get_roi_param(enc, enc->roi.id);
+                param->location.left = g_value_get_float (val);
+            } break;
+        case P_ROI_Y: {
+                struct roi_param *param = get_roi_param(enc, enc->roi.id);
+                param->location.top = g_value_get_float (val);
+            } break;
+        case P_ROI_QUALITY: {
+                gint quality = g_value_get_int (val);
+                struct roi_param *param = get_roi_param(enc, enc->roi.id);
+                if (quality != param->quality) {
+                    param->quality = quality;
+                }
+            } break;
         default:
             G_OBJECT_WARN_INVALID_PERTY_ID (obj, id, spec);
             break;
     }
-
 
     GST_OBJECT_UNLOCK (enc);
     return;
