@@ -10,7 +10,6 @@
  */
 
 #include <gmodule.h>
-#include <gst/allocators/gstdmabuf.h>
 #include <gst/gst.h>
 #include <gst/pbutils/pbutils.h>
 #include <gst/video/gstvideometa.h>
