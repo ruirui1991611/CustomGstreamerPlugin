@@ -472,6 +472,21 @@ gst_customvenc_set_roi(GstCustomEnc * encoder)
     }
 }
 
+/*
+ * once_set_roi() 函数
+ * 当用户通过set_property修改某些roi的参数时(enable, quality)
+ * 需要重新调用gst_customvenc_set_roi()来设置一下, 使用g_timeout_add()
+ * 来保证再超时范围内只调用一次即可
+ */
+static gboolean
+once_set_roi(GstCustomEnc * self) {
+  if (self != NULL) {
+      gst_customvenc_set_roi (self);
+  }
+
+  return G_SOURCE_REMOVE;
+}
+
 
 /*
  * gst_customvenc_init_enc()
@@ -713,6 +728,7 @@ gst_customvenc_set_property (GObject * obj, guint id,
         const GValue * val, GParamSpec * spec)
 {
     GstCustomEnc *enc = GST_CUSTOMVENC (obj);
+    gboolean is_set_roi = false;
 
     GST_OBJECT_LOCK (enc);
 
@@ -763,6 +779,7 @@ gst_customvenc_set_property (GObject * obj, guint id,
                 }
                 if (enabled != enc->roi.enabled) {
                     enc->roi.enabled = enabled;
+                    is_set_roi = true;
                 }
             } break;
         case P_ROI_ID: {
@@ -792,11 +809,16 @@ gst_customvenc_set_property (GObject * obj, guint id,
                 struct roi_param *param = get_roi_param(enc, enc->roi.id);
                 if (quality != param->quality) {
                     param->quality = quality;
+                    is_set_roi = true;
                 }
             } break;
         default:
             G_OBJECT_WARN_INVALID_PERTY_ID (obj, id, spec);
             break;
+    }
+
+    if (is_set_roi) {
+        g_timeout_add(500, (GSourceFunc)once_set_roi, (gpointer)enc);
     }
 
     GST_OBJECT_UNLOCK (enc);
