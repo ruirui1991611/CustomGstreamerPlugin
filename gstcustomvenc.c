@@ -1,8 +1,6 @@
 /**
  * SECTION:element-customvenc
  *
- * FIXME:Describe customvenc here.
- *
  * <refsect2>
  * <title>Example launch line</title>
  * |[
@@ -26,6 +24,14 @@
 GST_DEBUG_CATEGORY_STATIC (gst_customvenc_debug);
 #define GST_CAT_DEFAULT gst_customvenc_debug
 
+#define P_ROI_ID_DEFAULT 0
+#define P_ROI_ENABLED_DEFAULT TRUE
+#define P_ROI_WIDTH_DEFAULT 0.00
+#define P_ROI_HEIGHT_DEFAULT 0.00
+#define P_ROI_X_DEFAULT 0.00
+#define P_ROI_Y_DEFAULT 0.00
+#define P_ROI_QUALITY_DEFAULT 51
+
 #define P_IDR_PERIOD_DEFAULT 30
 #define P_FRAMERATE_DEFAULT 30
 #define P_BITRATE_DEFAULT 2000
@@ -36,32 +42,36 @@ GST_DEBUG_CATEGORY_STATIC (gst_customvenc_debug);
 #define P_ENCODER_BUFFER_SIZE_MIN 1024
 #define P_ENCODER_BUFFER_SIZE_MAX 4096
 
-#define P_ROI_ID_DEFAULT 0
-#define P_ROI_ENABLED_DEFAULT TRUE
-#define P_ROI_WIDTH_DEFAULT 0.00
-#define P_ROI_HEIGHT_DEFAULT 0.00
-#define P_ROI_X_DEFAULT 0.00
-#define P_ROI_Y_DEFAULT 0.00
-#define P_ROI_QUALITY_DEFAULT 51
 
 enum
 {
-  P_0,
-  P_GOP,
-  P_FRAMERATE,
-  P_BITRATE,
-  P_MIN_BUFFERS,
-  P_MAX_BUFFERS,
-  P_ENCODER_BUFSIZE,
-  P_ROI_ID,
-  P_ROI_ENABLED,
-  P_ROI_WIDTH,
-  P_ROI_HEIGHT,
-  P_ROI_X,
-  P_ROI_Y,
-  P_ROI_QUALITY,
+    P_0,
+    P_GOP,
+    P_FRAMERATE,
+    P_BITRATE,
+    P_MIN_BUFFERS,
+    P_MAX_BUFFERS,
+    P_ENCODER_BUFSIZE,
+    P_ROI_ID,
+    P_ROI_ENABLED,
+    P_ROI_WIDTH,
+    P_ROI_HEIGHT,
+    P_ROI_X,
+    P_ROI_Y,
+    P_ROI_QUALITY,
 };
 
+struct roi_related {
+    struct listnode list;
+    gint id;
+    gint quality;
+    struct {
+        gfloat left;
+        gfloat top;
+        gfloat width;
+        gfloat height;
+    } location;
+};
 
 #define PADS_INFO \
         " baseline, constrained-baseline, high-4:4:4-intra, high-4:2:2-intra," \
@@ -110,27 +120,27 @@ G_DEFINE_TYPE_WITH_CODE (GstCustomEnc, gst_customvenc, GST_TYPE_VIDEO_ENCODER,
 
 static venc_image_fmt
 convert_image_format (GstVideoFormat vfmt) {
-  venc_image_fmt fmt;
-  switch (vfmt) {
-  case GST_VIDEO_FORMAT_NV12:
-    fmt = IMG_FMT_NV12;
-    break;
-  case GST_VIDEO_FORMAT_NV21:
-    fmt = IMG_FMT_NV21;
-    break;
-  case GST_VIDEO_FORMAT_I420:
-  case GST_VIDEO_FORMAT_YV12:
-    fmt = IMG_FMT_YUV420P;
-    break;
-  case GST_VIDEO_FORMAT_RGB:
-  case GST_VIDEO_FORMAT_BGR:
-    fmt = IMG_FMT_NV12;
-    break;
-  default:
-    fmt = IMG_FMT_NONE;
-    break;
-  }
-  return fmt;
+    venc_image_fmt fmt;
+    switch (vfmt) {
+    case GST_VIDEO_FORMAT_NV12:
+      fmt = IMG_FMT_NV12;
+      break;
+    case GST_VIDEO_FORMAT_NV21:
+      fmt = IMG_FMT_NV21;
+      break;
+    case GST_VIDEO_FORMAT_I420:
+    case GST_VIDEO_FORMAT_YV12:
+      fmt = IMG_FMT_YUV420P;
+      break;
+    case GST_VIDEO_FORMAT_RGB:
+    case GST_VIDEO_FORMAT_BGR:
+      fmt = IMG_FMT_NV12;
+      break;
+    default:
+      fmt = IMG_FMT_NONE;
+      break;
+    }
+    return fmt;
 }
 
 
@@ -161,7 +171,10 @@ gst_customvenc_sink_query (GstVideoEncoder * enc, GstQuery * query)
     return ret;
 }
 
-
+/*
+ * 初始化必要的callback函数, gstreamer框架负责调用
+ * Install 必要的property
+ */
 static void
 gst_customvenc_class_init (GstCustomEncClass * klass)
 {
@@ -236,25 +249,25 @@ gst_customvenc_class_init (GstCustomEncClass * klass)
 }
 
 /*
- * 初始化相关必要变量
+ * 初始化venc需要的变量
  */
 static void
 gst_customvenc_init (GstCustomEnc * enc)
 {
-  enc->gop = P_IDR_PERIOD_DEFAULT;
-  enc->framerate = P_FRAMERATE_DEFAULT;
-  enc->bitrate = P_BITRATE_DEFAULT;
-  enc->max_buffers = P_MAX_BUFFERS_DEFAULT;
-  enc->min_buffers = P_MIN_BUFFERS_DEFAULT;
-  enc->encoder_bufsize = P_ENCODER_BUFFER_SIZE_DEFAULT * 1024;
-  enc->codec.id = CODEC_ID_NONE;
+    enc->gop = P_IDR_PERIOD_DEFAULT;
+    enc->framerate = P_FRAMERATE_DEFAULT;
+    enc->bitrate = P_BITRATE_DEFAULT;
+    enc->max_buffers = P_MAX_BUFFERS_DEFAULT;
+    enc->min_buffers = P_MIN_BUFFERS_DEFAULT;
+    enc->encoder_bufsize = P_ENCODER_BUFFER_SIZE_DEFAULT * 1024;
+    enc->codec.id = CODEC_ID_NONE;
 }
 
 static void
 gst_customvenc_finalize (GObject * obj)
 {
-  // 当对象的引用计数为0时, 调用父类的finalize函数
-  G_OBJECT_CLASS (parent_class)->finalize (obj);
+    // 当对象的引用计数为0时, 调用父类的finalize函数
+    G_OBJECT_CLASS (parent_class)->finalize (obj);
 }
 
 
@@ -264,13 +277,13 @@ gst_customvenc_finalize (GObject * obj)
 static gboolean
 gst_customvenc_start (GstVideoEncoder * enc)
 {
-  GstCustomEnc *venc = GST_CUSTOMVENC (enc);
+    GstCustomEnc *venc = GST_CUSTOMVENC (enc);
 
-  if (venc->codec.buf == NULL) {
-    venc->codec.buf = g_new (guchar, venc->enc_bufsize);
-  }
+    if (venc->codec.buf == NULL) {
+        venc->codec.buf = g_new (guchar, venc->enc_bufsize);
+    }
 
-  return TRUE;
+    return TRUE;
 }
 
 /* stop 函数, 当pipeline上无待处理的stream流时, 该函数
@@ -279,48 +292,122 @@ gst_customvenc_start (GstVideoEncoder * enc)
 static gboolean
 gst_customvenc_stop (GstVideoEncoder * enc)
 {
-  GstCustomEnc *venc = GST_CUSTOMVENC (enc);
+    GstCustomEnc *venc = GST_CUSTOMVENC (enc);
 
-  gst_customvenc_close_enc (venc);
+    gst_customvenc_close_enc (venc);
 
-  if (venc->input_state) {
-    gst_video_codec_state_unref (venc->input_state);
-    venc->input_state = NULL;
-  }
+    if (venc->input_state) {
+      gst_video_codec_state_unref (venc->input_state);
+      venc->input_state = NULL;
+    }
 
-  if (venc->codec.buf) {
-    g_free((gpointer)venc->codec.buf);
-    venc->codec.buf = NULL;
-  }
+    if (venc->codec.buf) {
+      g_free((gpointer)venc->codec.buf);
+      venc->codec.buf = NULL;
+    }
 
-  if (venc->dmabuf_alloc) {
-    gst_obj_unref(venc->dmabuf_alloc);
-    venc->dmabuf_alloc = NULL;
-  }
-
-  if (venc->imgproc.input.memory) {
-    gst_memory_unref(venc->imgproc.input.memory);
-    venc->imgproc.input.memory = NULL;
-  }
-
-  if (venc->imgproc.output.memory) {
-    gst_memory_unref(venc->imgproc.output.memory);
-    venc->imgproc.output.memory = NULL;
-  }
-
-  return TRUE;
+    return TRUE;
 }
 
 // 刷新流
 static gboolean
 gst_customvenc_flush (GstVideoEncoder * enc)
 {
-  GstCustomEnc *venc = GST_CUSTOMVENC (enc);
+    GstCustomEnc *venc = GST_CUSTOMVENC (enc);
 
-  gst_customvenc_init_enc (venc);
+    gst_customvenc_init_enc (venc);
 
-  return TRUE;
+    return TRUE;
 }
+
+/*
+ * 计算用于设置roi的buffer, venc接口需要使用该数据
+ */
+static void
+gst_customvenc_set_roi_buf(guchar* buffer, gint buf_w, gint buf_h,
+    struct roi_related *param, gint in_fr_w, gint in_fr_h, gint block_size) {
+    if (buffer == NULL || param == NULL) return;
+
+    gint left = param->location.left * in_fr_w;
+    gint top = param->location.top * in_fr_h;
+    gint width = param->location.width * in_fr_w;
+    gint height = param->location.height * in_fr_h;
+
+    gint right = left + width;
+    gint bottom = top + height;
+
+    gint limit = block_size / 2;
+
+    gint start_row = top / block_size;
+    gint start_col = left / block_size;
+    if ((left % block_size) > limit) start_col += 1;
+    if ((top % block_size) > limit) start_row += 1;
+
+    gint stop_row = bottom / block_size;
+    gint stop_col = right / block_size;
+    if ((right % block_size) >= limit) stop_col += 1;
+    if ((bottom % block_size) >= limit) stop_row += 1;
+
+    if (start_row <= stop_row && start_col <= stop_col) {
+        for (int i_row = start_row; i_row < stop_row; i_row++) {
+            for (int j_col = start_col; j_col < stop_col; j_col++) {
+                buffer[i_row * buf_w + j_col] = (param->quality);
+            }
+        }
+    }
+}
+
+/*
+ * gst_customvenc_set_roi: 设置roi
+ * @enc:  set roi.
+ * Set roi value
+ */
+static gboolean
+gst_customvenc_set_roi(GstCustomEnc * encoder)
+{
+    GstVideoInfo *info;
+
+    if (!encoder->input_state) {
+        GST_DEBUG_OBJECT (encoder, "Have no input state yet");
+        return FALSE;
+    }
+
+    info = &encoder->input_state->info;
+    // 进来frame的宽度和高度
+    gint in_fr_w = info->width;
+    gint in_fr_h = info->height;
+
+    gint buf_w = encoder->roi.buffer_info.width;
+    gint buf_h = encoder->roi.buffer_info.height;
+
+    if (encoder->roi.enabled) {
+        struct listnode *pos = NULL;
+        struct roi_related *param = NULL;
+        list_for_each(pos, &encoder->roi.param) {
+            param = list_entry(pos, struct roi_related, list);
+            gst_customvenc_set_roi_buf(
+                encoder->roi.buf_info.data,
+                buf_w, buf_h,
+                param,
+                in_fr_w,
+                in_fr_h,
+                encoder->roi.block_size
+            );
+        }
+    }
+
+    gint ret;
+    if (encoder->codec.handle) {
+        /* 调用encoder lib库接口更新qp值 <==> 更新roi value */
+        if ((ret = venc_update_qp_val(
+            encoder->codec.handle,
+            encoder->roi.buffer_info.data,
+            buf_w * buf_h)) != 0) {
+            return FALSE;
+        }
+    }
+}
+
 
 /*
  * gst_customvenc_init_enc()
@@ -329,26 +416,62 @@ gst_customvenc_flush (GstVideoEncoder * enc)
 static gboolean
 gst_customvenc_init_enc (GstCustomEnc * encoder)
 {
-  GstVideoInfo *info;
+    GstVideoInfo *info;
 
-  if (!enc->input_state) {
-    GST_DEBUG_OBJECT (enc, "Have no input state yet");
-    return FALSE;
-  }
+    if (!encoder->input_state) {
+        GST_DEBUG_OBJECT (enc, "Have no input state yet");
+        return FALSE;
+    }
 
-  info = &enc->input_state->info;
+    info = &encoder->input_state->info;
 
-  /* make sure that the enc is closed */
-  gst_customvenc_close_enc (encoder);
+    /* 确保 video encoder 被关闭 */
+    gst_customvenc_close_enc (encoder);
 
-  GST_OBJECT_LOCK (enc);
+    GST_OBJECT_LOCK (encoder);
 
 
-  GST_OBJECT_UNLOCK (enc);
+    GST_OBJECT_UNLOCK (encoder);
 
-  /* 初始化video encoder */
-  /* 此部分使用内部接口,这里不展示 */
-  return TRUE;
+    /* 初始化video encoder */
+    venc_info_t venc_info;
+    memset (&venc_info, 0, sizeof(venc_info_t));
+
+    venc_info.width = info->width;
+    venc_info.height = info->height;
+    venc_info.frame_rate = enc->framerate;
+    venc_info.bit_rate = enc->bitrate * 1000;
+    venc_info.gop = enc->gop;
+    venc_info.img_format = convert_image_format(GST_VIDEO_INFO_FORMAT(info));
+    venc_info.prepend_spspps_to_idr_frames = TRUE;
+    venc_info.feature |= 0x1;  // ROI功能使能
+    venc_info.feature |= 0x2;  // 修改参数功能使能(修改gop和bitrate)
+
+    params_of_qp_t qp_info;
+    memset(&qp_info, 0, sizeof(params_of_qp_t));
+
+    qp_info.min_val = 0;
+    qp_info.max_val = 51;
+    qp_info.I_base = 30;
+    qp_info.I_min = 0;
+    qp_info.I_max = 51;
+    qp_info.P_base = 30;
+    qp_info.P_min = 0;
+    qp_info.P_max = 51;
+
+    enc->codec.handle = venc_init(encoder->codec.id, venc_info, &qp_info);
+
+    if (encoder->codec.handle == 0) {
+        GST_ELEMENT_ERROR (encoder, STREAM, ENCODE,
+            ("Initialize venc error"), (NULL));
+        return FALSE;
+    }
+
+    if (!gst_customvenc_set_roi (encoder)) {
+        return FALSE;
+    }
+
+    return TRUE;
 }
 
 
@@ -360,75 +483,75 @@ gst_customvenc_init_enc (GstCustomEnc * encoder)
 static void
 gst_customvenc_close_enc (GstCustomEnc * encoder)
 {
-  if (enc->codec.handle != 0) {
-    /* 调用encoder lib库接口销毁encoder句柄 */
-    venc_destroy(encoder->codec.handle);
-    enc->codec.handle = 0;
-  }
+    if (enc->codec.handle != 0) {
+        /* 调用encoder lib库接口销毁encoder句柄 */
+        venc_destroy(encoder->codec.handle);
+        enc->codec.handle = 0;
+    }
 }
 
 static gboolean
 gst_customvenc_set_format (GstVideoEncoder * video_enc,
     GstVideoCodecState * state)
 {
-  GstCustomEnc *enc = GST_CUSTOMVENC (video_enc);
-  GstVideoInfo *info = &state->info;
-  GstCaps *template_caps;
-  GstCaps *allowed_caps = NULL;
-  const gchar* allowed_mime_name = NULL;
+    GstCustomEnc *enc = GST_CUSTOMVENC (video_enc);
+    GstVideoInfo *info = &state->info;
+    GstCaps *template_caps;
+    GstCaps *allowed_caps = NULL;
+    const gchar* allowed_mime_name = NULL;
 
-  // 如果enc已经初始化,直接使用即可
-  if (enc->codec.handle) {
-    GstVideoInfo *old = &enc->input_state->info;
+    // 如果enc已经初始化,直接使用即可
+    if (enc->codec.handle) {
+        GstVideoInfo *old = &enc->input_state->info;
 
-    if (info->finfo->format == old->finfo->format
-        && info->width == old->width && info->height == old->height
-        && info->fps_n == old->fps_n && info->fps_d == old->fps_d
-        && info->par_n == old->par_n && info->par_d == old->par_d) {
-      gst_video_codec_state_unref (enc->input_state);
-      enc->input_state = gst_video_codec_state_ref (state);
-      return TRUE;
-    }
-  }
-
-  if (enc->input_state)
-    gst_video_codec_state_unref (enc->input_state);
-
-  enc->input_state = gst_video_codec_state_ref (state);
-
-  template_caps = gst_static_pad_template_get_caps (&source_pad);
-  allowed_caps = gst_pad_get_allowed_caps (GST_VIDEO_ENCODER_SRC_PAD (enc));
-
-  if (allowed_caps && allowed_caps != template_caps && enc->codec.id == CODEC_ID_NONE) {
-    GstStructure *s;
-
-    if (gst_caps_is_empty (allowed_caps)) {
-      gst_caps_unref (allowed_caps);
-      gst_caps_unref (template_caps);
-      return FALSE;
+        if (info->finfo->format == old->finfo->format
+            && info->width == old->width && info->height == old->height
+            && info->fps_n == old->fps_n && info->fps_d == old->fps_d
+            && info->par_n == old->par_n && info->par_d == old->par_d) {
+            gst_video_codec_state_unref (enc->input_state);
+            enc->input_state = gst_video_codec_state_ref (state);
+            return TRUE;
+        }
     }
 
-    allowed_caps = gst_caps_make_writable (allowed_caps);
-    allowed_caps = gst_caps_fixate (allowed_caps);
-    s = gst_caps_get_structure (allowed_caps, 0);
-    allowed_mime_name = gst_structure_get_name (s);
+    if (enc->input_state)
+        gst_video_codec_state_unref (enc->input_state);
 
-    if (!g_strcmp0 (allowed_mime_name, "video/x-h265"))
-    {
-      enc->codec.id = H265;
-    } else {
-      enc->codec.id = H264;
+    enc->input_state = gst_video_codec_state_ref (state);
+
+    template_caps = gst_static_pad_template_get_caps (&source_pad);
+    allowed_caps = gst_pad_get_allowed_caps (GST_VIDEO_ENCODER_SRC_PAD (enc));
+
+    if (allowed_caps && allowed_caps != template_caps && enc->codec.id == CODEC_ID_NONE) {
+        GstStructure *s;
+
+        if (gst_caps_is_empty (allowed_caps)) {
+            gst_caps_unref (allowed_caps);
+            gst_caps_unref (template_caps);
+            return FALSE;
+        }
+
+        allowed_caps = gst_caps_make_writable (allowed_caps);
+        allowed_caps = gst_caps_fixate (allowed_caps);
+        s = gst_caps_get_structure (allowed_caps, 0);
+        allowed_mime_name = gst_structure_get_name (s);
+
+        if (!g_strcmp0 (allowed_mime_name, "video/x-h265"))
+        {
+            enc->codec.id = H265;
+        } else {
+            enc->codec.id = H264;
+        }
+
+        gst_caps_unref (allowed_caps);
     }
 
-    gst_caps_unref (allowed_caps);
-  }
+    gst_caps_unref (template_caps);
 
-  gst_caps_unref (template_caps);
+    if (!gst_customvenc_init_enc (encoder))
+        return FALSE;
 
-  if (!gst_customvenc_init_enc (encoder))
-    return FALSE;
-
-  return TRUE;
+    return TRUE;
 }
 
 /* chain function
@@ -438,67 +561,61 @@ static GstFlowReturn
 gst_customvenc_handle_frame (GstVideoEncoder * video_enc,
     GstVideoCodecFrame * frame)
 {
-  GstCustomEnc *enc = GST_CUSTOMVENC (video_enc);
-  GstFlowReturn ret;
+    GstCustomEnc *enc = GST_CUSTOMVENC (video_enc);
+    GstFlowReturn ret;
 
-  if (G_UNLIKELY (enc->codec.handle == 0))
-    goto not_inited;
+    if (G_UNLIKELY (enc->codec.handle == 0)) {
+        GST_WARNING_OBJECT (enc, "Internal Problem");
+        return GST_FLOW_NOT_NEGOTIATED;
+    }
 
-  ret = gst_customvenc_encode_frame (enc, frame);
+    ret = gst_customvenc_encode_frame (enc, frame);
 
-  return ret;
+    return ret;
 
-/* ERRORS */
-not_inited:
-  {
-    GST_WARNING_OBJECT (enc, "Got buffer before set_caps was called");
-    return GST_FLOW_NOT_NEGOTIATED;
-  }
 }
 
 static GstFlowReturn
 gst_customvenc_encode_frame (GstCustomEnc * enc,
-    GstVideoCodecFrame * frame)
-{
+    GstVideoCodecFrame * frame) {
 
-  /* 下面部份使用video encoder编码帧(调用相应的lib库), 不同的
-   * venc有所不同, 这里还支持使用dma buffer, 具体代码就不放出了
-   */
+    /* 下面部份使用video encoder编码帧(调用相应的lib库), 不同的
+     * venc有所不同, 这里还支持使用dma buffer, 具体代码就不放出了
+     */
 
-  return gst_video_enc_finish_frame ( GST_VIDEO_ENCODER(encoder), frame);
+    return gst_video_enc_finish_frame ( GST_VIDEO_ENCODER(encoder), frame);
 }
 
 static void
 gst_customvenc_get_property (GObject * obj, guint id,
-    GValue * val, GParamSpec * spec)
-{
-  GstCustomEnc *enc = GST_CUSTOMVENC (obj);
+    GValue * val, GParamSpec * spec) {
+    GstCustomEnc *enc = GST_CUSTOMVENC (obj);
 
-  GST_OBJECT_LOCK (enc);
-  switch (id) {
-    case P_GOP:
-      g_value_set_int (val, enc->gop);
-      break;
-    case P_FRAMERATE:
-      g_value_set_int (val, enc->framerate);
-      break;
-    case P_BITRATE:
-      g_value_set_int (val, enc->bitrate);
-      break;
-    case P_MIN_BUFFERS:
-      g_value_set_int (val, enc->min_buffers);
-      break;
-    case P_MAX_BUFFERS:
-      g_value_set_int (val, enc->max_buffers);
-      break;
-    case P_ENCODER_BUFSIZE:
-      g_value_set_int (val, enc->encoder_bufsize / 1024);
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PERTY_ID (obj, id, spec);
-      break;
-  }
-  GST_OBJECT_UNLOCK (enc);
+    GST_OBJECT_LOCK (enc);
+    switch (id) {
+        case P_GOP:
+            g_value_set_int (val, enc->gop);
+            break;
+        case P_FRAMERATE:
+            g_value_set_int (val, enc->framerate);
+            break;
+        case P_BITRATE:
+            g_value_set_int (val, enc->bitrate);
+            break;
+        case P_MIN_BUFFERS:
+            g_value_set_int (val, enc->min_buffers);
+            break;
+        case P_MAX_BUFFERS:
+            g_value_set_int (val, enc->max_buffers);
+            break;
+        case P_ENCODER_BUFSIZE:
+            g_value_set_int (val, enc->encoder_bufsize / 1024);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PERTY_ID (obj, id, spec);
+            break;
+        }
+    GST_OBJECT_UNLOCK (enc);
 }
 
 static void
